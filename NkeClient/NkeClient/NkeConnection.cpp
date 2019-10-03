@@ -7,6 +7,7 @@
 //
 
 #include "NkeConnection.h"
+//#include <CoreFoundation/CoreFoundation.h>
 
 //--------------------------------------------------------------------
 
@@ -25,14 +26,19 @@ NkeOpenDlDriver(
     
     setbuf(stdout, NULL);
     
+    // Problem may be service matching!before
     if (!(classToMatch = IOServiceMatching("NetworkKernelExtension"))){
         printf("failed to create matching dictionary\n");
         return kIOReturnError;
     }
     
+//    printf("Dictionary Count: %ld \n", CFDictionaryGetCount(classToMatch));
+    
     //
-    // IOServiceGetMatchingServices consumes classToMatch reference
+    // IOServiceGetMatchingServices consumes classToMatch rseference
     //
+//    printf("Master Port Default: %d\n", kIOMasterPortDefault);
+    
     kr = IOServiceGetMatchingServices(kIOMasterPortDefault, classToMatch,
                                       &iterator);
     if (kr != kIOReturnSuccess){
@@ -41,7 +47,14 @@ NkeOpenDlDriver(
         return kr;
     }
     
+//    if (IOIteratorIsValid(iterator)) {
+//        printf("Iterator is valid!\n");
+//    } else {
+//        printf("Iterator is not valid!\n");
+//    }
+    
     serviceObject = IOIteratorNext(iterator);
+    
     IOObjectRelease(iterator);
     if (!serviceObject){
         

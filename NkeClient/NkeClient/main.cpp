@@ -153,10 +153,20 @@ NkeSocketHandler(io_connect_t connection)
                     //
                     // print the first bytes as a string, sometimes you can see a human readable data, like HTTP headers
                     //
-                    if( notification.eventData.inputoutput.dataSize && notification.eventData.inputoutput.buffers[0] < kt_NkeSocketBuffersNumber ){
-                        printf("%.*s\n", min(120, notification.eventData.inputoutput.dataSize), (char*)sharedBuffers[notification.eventData.inputoutput.buffers[0]]);
-                    }
                     
+                    // Print the first bytes as hexidecimal values
+                    if( notification.eventData.inputoutput.dataSize && notification.eventData.inputoutput.buffers[0] < kt_NkeSocketBuffersNumber ){
+                        char *currentChar = (char*)sharedBuffers[notification.eventData.inputoutput.buffers[0]];
+                        int count = 0;
+                        while (*currentChar != '\0' && count < 120 ) {
+                            printf("%x",(unsigned int)(*currentChar));
+                            currentChar++;
+                            count++;
+                        }
+                        printf("\n");
+                        
+                        // printf("%.*s\n", min(120, notification.eventData.inputoutput.dataSize), (char*)sharedBuffers[notification.eventData.inputoutput.buffers[0]]);
+                    }
                     //
                     // create a response
                     //

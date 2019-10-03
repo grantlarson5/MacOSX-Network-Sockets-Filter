@@ -754,7 +754,7 @@ NkeIOUserClientRef::unregisterUserClient( __in NkeIOUserClient* client )
     NkeIOUserClient*  currentClient;
     
     currentClient = (NkeIOUserClient*)this->userClient;
-    assert( currentClient == client );
+    assert( currentClient == client ); // assertion failure causes computer shutdown!
     if( currentClient != client ){
         
         DBG_PRINT_ERROR(("currentClient != client\n"));
