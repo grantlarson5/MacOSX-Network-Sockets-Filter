@@ -61,7 +61,6 @@ static const IOExternalMethod sMethods[ kt_NkeUserClientMethodsMax ] =
         kIOUCVariableStructureSize,
         kIOUCVariableStructureSize
     }
-
 };
 
 //--------------------------------------------------------------------
@@ -76,29 +75,21 @@ NkeIOUserClient* NkeIOUserClient::withTask( __in task_t owningTask )
     if( !client )
         return NULL;
     
-    //
-    // set an invalid PID
-    //
+    // Set an invalid PID
     client->fClientPID = (-1);
         
     if (client->init() == false) {
-        
         client->release();
         return NULL;
     }
     
     for( int type = 0x0; type < kt_NkeNotifyTypeMax; ++type ){
-        
-        //
-        // a default size is 512 Kb for each queue
-        //
+        // A default size is 512 Kb for each queue
         client->fQueueSize[ type ] = 0x80000;
     }
     
-    //
-    // the network data notification, the data send in separate mapped buffers
-    //
-    client->fQueueSize[ kt_NkeNotifyTypeSocketFilter ] = 0x100000;
+    // The network data notification, the data send in separate mapped buffers
+    client->fQueueSize[ kt_NkeNotifyTypeSocketFilter ] = 0x100000; //kt_NkeNotifyTypeSocketFilter is memory identifier for mapping buffers
     
     client->fClient = owningTask;
     

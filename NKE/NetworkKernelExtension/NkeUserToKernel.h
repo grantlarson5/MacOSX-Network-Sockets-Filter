@@ -18,10 +18,8 @@
 
 //--------------------------------------------------------------------
 
-//
-// because of 32 bit driver and 64 bit service the alignment and pack attribute is required for all structures
+// Because of 32 bit driver and 64 bit service the alignment and pack attribute is required for all structures
 // that are shared by the service and the driver
-//
 #define NKE_ALIGNMENT  __attribute__((aligned(4),packed))
 
 //--------------------------------------------------------------------
@@ -103,9 +101,7 @@ typedef enum _NkeSocketFilterEvent{
     NkeSocketFilterEventDataIn,
     NkeSocketFilterEventDataOut,
     
-    //
-    // always the last, used to prevent the compiler from shrinking the enumerator size to 16 bytes
-    //
+    // Always the last, used to prevent the compiler from shrinking the enumerator size to 16 bytes
     NkeSocketFilterEventMax = 0xFFFFFFFF
 } NkeSocketFilterEvent;
 

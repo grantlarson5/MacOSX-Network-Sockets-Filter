@@ -1,4 +1,6 @@
-/* 
+/*
+ * NkeDataBuffer - functions for loading/handling data buffer
+ *
  * Copyright (c) 2012 Slava Imameev. All rights reserved.
  */
 

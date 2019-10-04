@@ -1,4 +1,6 @@
 /*
+ * NetworkKernelExtension - functions for loading/instantiating NKE and attaching client
+ *
  * Copyright (c) 2016 Slava Imameev. All rights reserved.
  */
 

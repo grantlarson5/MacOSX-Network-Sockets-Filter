@@ -1,23 +1,17 @@
 //
-//  NkeConnection.cpp
+//  NkeConnection.cpp - Function for opening connection with NKE driver
 //  NkeClient
 //
-//  Created by slava on 25/12/2016.
+//  Created by Slava on 25/12/2016.
 //  Copyright (c) 2016 Slava-Imameev. All rights reserved.
 //
 
 #include "NkeConnection.h"
-//#include <CoreFoundation/CoreFoundation.h>
 
 //--------------------------------------------------------------------
 
-//
-// the returned connection must be closed by calling IOServiceClose
-//
-kern_return_t
-NkeOpenDlDriver(
-                io_connect_t*    connection
-                )
+// The returned connection must be closed by calling IOServiceClose
+kern_return_t NkeOpenDlDriver(io_connect_t* connection)
 {
     kern_return_t   kr;
     io_iterator_t   iterator;
@@ -26,42 +20,30 @@ NkeOpenDlDriver(
     
     setbuf(stdout, NULL);
     
-    // Problem may be service matching!before
+    // Find NetworkKernelExtension service
     if (!(classToMatch = IOServiceMatching("NetworkKernelExtension"))){
         printf("failed to create matching dictionary\n");
         return kIOReturnError;
     }
     
-//    printf("Dictionary Count: %ld \n", CFDictionaryGetCount(classToMatch));
-    
-    //
-    // IOServiceGetMatchingServices consumes classToMatch rseference
-    //
-//    printf("Master Port Default: %d\n", kIOMasterPortDefault);
-    
+    // Retrieve matching service
+    // IOServiceGetMatchingServices consumes classToMatch reference
     kr = IOServiceGetMatchingServices(kIOMasterPortDefault, classToMatch,
                                       &iterator);
     if (kr != kIOReturnSuccess){
-        
         printf("failed to retrieve matching services\n");
         return kr;
     }
-    
-//    if (IOIteratorIsValid(iterator)) {
-//        printf("Iterator is valid!\n");
-//    } else {
-//        printf("Iterator is not valid!\n");
-//    }
     
     serviceObject = IOIteratorNext(iterator);
     
     IOObjectRelease(iterator);
     if (!serviceObject){
-        
         printf("NetworkKernelExtension service not found\n");
         return kIOReturnError;
     }
     
+    // Open the retrieved IO service
     kr = IOServiceOpen( serviceObject, mach_task_self(), kNkeUserClientCookie, connection );
     IOObjectRelease(serviceObject);
     if (kr != kIOReturnSuccess){
@@ -80,7 +62,3 @@ NkeOpenDlDriver(
     return kr;
     
 }
-
-//--------------------------------------------------------------------
-
-
