@@ -95,10 +95,8 @@ errno_t NkeSocketObject::InitSocketObjectsSubsystem()
 {
     assert( ! NkeSocketObject::Initialized );
     
-    //
-    // don't want the flag set to OSMT_PAGEABLE since
+    // Don't want the flag set to OSMT_PAGEABLE since
     // it would indicate that the memory was pageable.
-    //
     gOSMallocTag = OSMalloc_Tagalloc( "NKEriverNKE", OSMT_DEFAULT );
 	if( NULL == gOSMallocTag )
         return ENOMEM;
@@ -106,13 +104,13 @@ errno_t NkeSocketObject::InitSocketObjectsSubsystem()
     if( NkeSocketObject::Initialized )
         return KERN_SUCCESS;
     
+    // Initialize queue for sockets
     TAILQ_INIT( &NkeSocketObject::SocketsList );
     TAILQ_INIT( &NkeSocketObject::SocketsListToReport );
     
     NkeSocketObject::SocketsListLock = IORWLockAlloc();
     assert( NkeSocketObject::SocketsListLock );
     if( ! NkeSocketObject::SocketsListLock ){
-        
         DBG_PRINT_ERROR(("NkeSocketObject::SocketsListLock = IORWLockAlloc() failed\n"));
         return ENOMEM;
     }
@@ -120,7 +118,6 @@ errno_t NkeSocketObject::InitSocketObjectsSubsystem()
     NkeSocketObject::SocketsListToReportLock = IORWLockAlloc();
     assert( NkeSocketObject::SocketsListToReportLock );
     if( ! NkeSocketObject::SocketsListToReportLock ){
-        
         DBG_PRINT_ERROR(("NkeSocketObject::SocketsListToReportLock = IORWLockAlloc() failed\n"));
         return ENOMEM;
     }
@@ -133,7 +130,6 @@ errno_t NkeSocketObject::InitSocketObjectsSubsystem()
                                   &thread );
 	assert( KERN_SUCCESS == error );
     if ( KERN_SUCCESS != error ){
-        
         return error;
     }
     
@@ -203,6 +199,7 @@ NkeSocketObject::InjectionThreadRoutine( void* context )
     
 #endif // _NKE_SOCKET_FILTER_USER_EMULATION
     
+    // Why is this always true?
     while( true ){
         
         TAILQ_HEAD( NkeSocketsListHead, NkeSocketObject ) localSocketsList;
@@ -210,7 +207,7 @@ NkeSocketObject::InjectionThreadRoutine( void* context )
         
 #ifdef _NKE_SOCKET_FILTER_USER_EMULATION
         
-#error "this is an emulation for a user space notification acceptor, should not be used if a user space acceptor is present"
+#error "This is an emulation for a user space notification acceptor, should not be used if a user space acceptor is present"
 
         NkeSocketFilterNotification notification;
         UInt32   dataSize = sizeof( notification );
@@ -1119,7 +1116,7 @@ NkeSocketObject::FltData(
                 
                 notification.eventData.inputoutput.dataSize = mbuf_pkthdr_len( mbuf );
                 
-                error = gSocketFilter->copyDataToBuffers( mbuf, notification.eventData.inputoutput.buffers );
+                error = gSocketFilter->copyDataToBuffers( mbuf, notification.eventData.inputoutput.buffers ); //Here, packet data gets copied to buffers
                 if( error ){
                     
                     assert( UINT8_MAX == notification.eventData.inputoutput.buffers[0] );
@@ -1399,9 +1396,9 @@ NkeSocketObject::DeliverWaitingNotifications()
                     notification.eventData.inputoutput.dataIndex = pendingPkt->dataIndex;
                     notification.eventData.inputoutput.dataSize = mbuf_pkthdr_len( pendingPkt->data );
                     
-                    //
-                    // copy data to communication buffers
-                    //
+                    // Copy data to communication buffers
+                    // This is where data becomes visible to the user-space client
+                    // TODO - Learn more about what that data is such as to parse packet
                     error = gSocketFilter->copyDataToBuffers( pendingPkt->data, notification.eventData.inputoutput.buffers );
                     if( 0x0 == error ){
                         
@@ -1674,11 +1671,7 @@ NkeSocketObject::DeliverWaitingNotifications()
  #20 0x004ed78d in unix_syscall (state=0x5faa160) at /SourceCache/xnu/xnu-1504.7.4/bsd/dev/i386/systemcalls.c:205 
  */
 
-void
-NkeSocketObject::reinjectDeferredData(
-    __in NkeSocketObject::NkeSocketDataDirectionType  injectType
-    )
-{
+void NkeSocketObject::reinjectDeferredData( __in NkeSocketObject::NkeSocketDataDirectionType  injectType) {
     assert( preemption_enabled() );
     
 	PktPendingQueueHead		packetsToInject;
@@ -2016,10 +2009,8 @@ NkeSocketObject::verifyPendingPacketsQueue( __in bool lock )
 
 //--------------------------------------------------------------------
 
-void
-NkeSocketObject::purgePendingQueue(
-    __in NkeSocketObject::NkeSocketDataDirectionType purgeType
-    )
+void NkeSocketObject::purgePendingQueue(
+    __in NkeSocketObject::NkeSocketDataDirectionType purgeType)
 {
     assert( preemption_enabled() );
     

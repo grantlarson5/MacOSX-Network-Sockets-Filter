@@ -113,9 +113,9 @@ typedef enum _NkeSocketFilterEvent{
 //
 
 typedef struct _NkeSocketFilterEventConnectedData{
-    sa_family_t sa_family;
-    NkeSocketObjectAddress localAddress;
-	NkeSocketObjectAddress remoteAddress;
+    sa_family_t sa_family; // Socket address family
+    NkeSocketObjectAddress localAddress; // IP address of network information on which connection made
+	NkeSocketObjectAddress remoteAddress; // IP address/hostname of remote computer connected to
 } NKE_ALIGNMENT NkeSocketFilterEventConnectedData;
 
 
@@ -171,7 +171,9 @@ typedef struct _NkeSocketFilterEventBoundData{
     #define UINT32_MAX        4294967295U
 #endif // UINT32_MAX
 
+
 typedef struct _NkeSocketFilterEventIoData{
+    // Structure for trailing data that follows event
     
     //
     // a full data size that follows this event,
@@ -196,6 +198,7 @@ typedef struct _NkeSocketFilterEventIoData{
 
 
 typedef struct _NkeSocketFilterNotification{
+    // Structure for notification (not including event data)
     
     //
     // type of the event
@@ -310,4 +313,3 @@ typedef struct _NkeSocketFilterServiceResponse
 } NKE_ALIGNMENT NkeSocketFilterServiceResponse;
 
 #endif//_NKEUSERTOKERNEL_H
-

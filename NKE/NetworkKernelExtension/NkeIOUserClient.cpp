@@ -106,7 +106,6 @@ bool NkeIOUserClient::start( __in IOService *provider )
         return false;
     
     if( !super::start( provider ) ){
-        
         DBG_PRINT_ERROR(("super::start(%p) failed\n", (void*)provider ));
         return false;
     }
@@ -132,16 +131,12 @@ bool NkeIOUserClient::start( __in IOService *provider )
             return false;
         }        
         
-        //
-        // allocate a queue
-        //
+        // Allocate a queue
         this->fDataQueue[ type ] = IODataQueue::withCapacity( this->fQueueSize[ type ] );
         assert( this->fDataQueue[ type ] );
         while( !this->fDataQueue[ type ] && this->fQueueSize[ type ] > 0x8000){
             
-            //
-            // try to decrease the queue size until the low boundary of 32 Kb is reached
-            //
+            // Try to decrease the queue size until the low boundary of 32 Kb is reached
             this->fQueueSize[ type ] = this->fQueueSize[ type ]/2;
             this->fDataQueue[ type ] = IODataQueue::withCapacity( this->fQueueSize[ type ]/2 );
         }
@@ -155,11 +150,9 @@ bool NkeIOUserClient::start( __in IOService *provider )
             return false;
         }
         
-        //
-        // get the queue's memory descriptor
-        //
+        // Get the queue's memory descriptor
         this->fSharedMemory[ type ] = this->fDataQueue[ type ]->getMemoryDescriptor();
-        assert( this->fSharedMemory[ type ] );
+        assert( this->fSharedMemory[ type ] ); // Shared memory between kernel and user space client
         if( !this->fSharedMemory[ type ] ) {
             
             DBG_PRINT_ERROR(("this->fDataQueue[ %u ]->getMemoryDescriptor() failed\n", type));
@@ -618,6 +611,7 @@ IOReturn NkeIOUserClient::socketFilterNotification( __in NkeSocketFilterNotifica
     // disable the preemtion as IODataQueue::sendDataAvailableNotification
     // can block on the mutex
     //
+    // Lock mutex while other threads use resource (shared buffers)
     IOLockLock( this->fLock[ kt_NkeNotifyTypeSocketFilter ] );
     {// start of the lock
         

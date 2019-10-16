@@ -62,3 +62,7 @@ kern_return_t NkeOpenDlDriver(io_connect_t* connection)
     return kr;
     
 }
+
+// TODO - start filtering
+// TODO - stop filtering
+// TODO - adjust filtering parameters

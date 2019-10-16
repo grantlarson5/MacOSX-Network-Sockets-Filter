@@ -7,14 +7,16 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOUserClient.h>
+#include <sys/ioccom.h> // ioctl macros
+
+#define NKE_START_DIVERTING _IO('F', 1)
+#define NKE_STOP_DIVERTING _IO('F', 2)
 
 #include "NkeCommon.h"
 
 //--------------------------------------------------------------------
 
-//
-// the I/O Kit driver class
-//
+// I/O Kit driver class
 class NetworkKernelExtension : public IOService
 {
     OSDeclareDefaultStructors(NetworkKernelExtension)
@@ -22,6 +24,8 @@ class NetworkKernelExtension : public IOService
 public:
     virtual bool start(IOService *provider);
     virtual void stop( IOService * provider );
+    int ioctl( dev_t dev, u_long cmd, caddr_t data, int fflag, struct thread *td);
+    
     
     virtual IOReturn newUserClient( __in task_t owningTask,
                                     __in void*,

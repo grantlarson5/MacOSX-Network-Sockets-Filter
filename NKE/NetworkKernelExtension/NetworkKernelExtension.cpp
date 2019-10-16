@@ -30,17 +30,12 @@ OSDefineMetaClassAndStructors(NetworkKernelExtension, IOService)
 
 //--------------------------------------------------------------------
 
-bool
-NetworkKernelExtension::start(
-                     __in IOService *provider
-                     )
+bool NetworkKernelExtension::start( __in IOService *provider)
 {
     
     Instance = this;
     
-    //
-    // start network filtering
-    //
+    // Start network filtering
     if( KERN_SUCCESS == NkeSocketFilter::InitSocketFilterSubsystem() ){
         
         gSocketFilter = NkeSocketFilter::withDefault();
@@ -85,10 +80,7 @@ __exit_on_error:
 
 //--------------------------------------------------------------------
 
-void
-NetworkKernelExtension::stop(
-                    __in IOService * provider
-                    )
+void NetworkKernelExtension::stop( __in IOService * provider )
 {
     if( gSocketFilter ){
         
@@ -117,7 +109,6 @@ bool NetworkKernelExtension::init()
 //
 void NetworkKernelExtension::free()
 {
-    
     super::free();
 }
 
@@ -189,4 +180,21 @@ NetworkKernelExtension::newUserClient(
 
 //--------------------------------------------------------------------
 
-
+// TODO - Finish stubbed out ioctls
+int NetworkKernelExtension::ioctl( dev_t dev, u_long cmd, caddr_t data, int fflag, struct thread *td) {
+    int error = 0;
+    
+    switch(cmd) {
+        case NKE_START_DIVERTING:
+            // TODO - Set up filter action
+            break;
+        case NKE_STOP_DIVERTING:
+            // TODO - Set up filter action
+            break;
+        default:
+            error = ENOTTY;
+            break;
+    }
+    
+    return error;
+}

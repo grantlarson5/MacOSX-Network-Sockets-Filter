@@ -66,11 +66,10 @@ errno_t NkeSocketFilter::InitSocketFilterSubsystem()
 {
     errno_t  error;
     
-    // set up the tag value associated with this NKE in preparation for swallowing packets and re-injecting them
+    // Set up the tag value associated with this NKE in preparation for swallowing packets and re-injecting them
 	error = mbuf_tag_id_find( "NKEriverNKE" , &NkeSocketFilter::gidtag );
     assert( KERN_SUCCESS == error );
-	if( KERN_SUCCESS != error ){
-        
+    if( KERN_SUCCESS != error ){
 		DBG_PRINT_ERROR(("mbuf_tag_id_find returned error %d\n", error));
 		return error;
 	}
@@ -78,7 +77,6 @@ errno_t NkeSocketFilter::InitSocketFilterSubsystem()
     error = NkeSocketObject::InitSocketObjectsSubsystem();
     assert( KERN_SUCCESS == error );
     if( KERN_SUCCESS != error ){
-        
         DBG_PRINT_ERROR(("InitSocketObjectsSubsystem() failed with error = %d\n", error));
         return error;
     }
@@ -526,6 +524,7 @@ NkeSocketFilter::FltNotify(void *cookie, socket_t so, sflt_event_t event, void *
         
         NkeIOUserClient* userClient = gSocketFilter->getUserClient();
         
+        // Switch statement for determing which filter notification is sent
         switch( event ){
                 // a comment from the kernel sources describing scenarious for sock_evt_connecting
                 // and sock_evt_connected events
@@ -653,6 +652,7 @@ NkeSocketFilter::FltNotify(void *cookie, socket_t so, sflt_event_t event, void *
                     
                     INIT_SOCKET_NOTIFICATION( notification, soObj, NkeSocketFilterEventConnected );
                     
+                    // Send along information about the connection with the connected event message
                     soObj->getLocalAddress( &notification.eventData.connected.localAddress );
                     soObj->getRemoteAddress( &notification.eventData.connected.remoteAddress );
                     notification.eventData.connected.sa_family = soObj->getProtocolFamily();
