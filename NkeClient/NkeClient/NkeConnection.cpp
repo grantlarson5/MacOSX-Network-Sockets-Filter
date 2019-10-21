@@ -47,7 +47,6 @@ kern_return_t NkeOpenDlDriver(io_connect_t* connection)
     kr = IOServiceOpen( serviceObject, mach_task_self(), kNkeUserClientCookie, connection );
     IOObjectRelease(serviceObject);
     if (kr != kIOReturnSuccess){
-        
         printf("failed to open NetworkKernelExtension service, an error is %i \n", kr);
         return kr;
     }

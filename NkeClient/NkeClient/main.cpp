@@ -7,31 +7,59 @@
 
 #include <iostream>
 #include "NkeConnection.h"
+#include <sys/ioctl.h>
 
 //-------------------------------------------------------------
 
-IOReturn
-NkeSocketHandler(io_connect_t connection);
+#define NKE_START_DIVERTING _IO('N',1)
+#define NKE_STOP_DIVERTING _IO('N',2)
+
+//-------------------------------------------------------------
+
+io_connect_t    connection;
+
+//-------------------------------------------------------------
+
+IOReturn NkeSocketHandler(io_connect_t connection);
 const char* NkeEventToString(NkeSocketFilterEvent   event);
+void exitHandler(void);
 
 //-------------------------------------------------------------
 
 int main(int argc, const char * argv[])
 {
-    io_connect_t    connection;
+    
     kern_return_t   kr;
     pthread_t       nkeSocketThread;
+    
+    // Register atexit handler for stopping filter
+    if (std::atexit(exitHandler)) {
+        printf("error registering exit handler\n");
+    }
     
     // Connect to NKE filter driver
     kr = NkeOpenDlDriver( &connection );
     if( KERN_SUCCESS != kr ){
         return (-1);
     }
+    
+    // Open device node for sending ioctls
+    int fd = open("/dev/archon", O_RDWR);
+    if (fd < 0) {
+        printf("error opening archon device\n");
+    }
 
+    // Send IOCTL to start filtering
+    int error = ioctl(fd, NKE_START_DIVERTING, NULL);
+    if (error < 1) {
+        printf("error starting packet diversion\n");
+    }
+    close(fd);
+    
     // Create thread for handling socket notifications
-    int ret = pthread_create(&nkeSocketThread, (pthread_attr_t *)0,
+    error = pthread_create(&nkeSocketThread, (pthread_attr_t *)0,
                             (void* (*)(void*))NkeSocketHandler, (void *)connection);
-    if( ret ){
+    if( error ){
         perror("pthread_create( SocketNotificationHandler )");
         nkeSocketThread = NULL;
     }
@@ -40,11 +68,30 @@ int main(int argc, const char * argv[])
         pthread_join(nkeSocketThread, (void **)&kr);
     }
     
-    IOServiceClose(connection); // Close the IOService opened by NkeOpenDlDriver
+    //IOServiceClose(connection); // Close the IOService opened by NkeOpenDlDriver
+    
     return 0;
 }
 
 //-------------------------------------------------------------
+
+void exitHandler(void) {
+    // Open device node for sending ioctls
+    int fd = open("/dev/archon", O_RDWR);
+    if (fd < 0) {
+        printf("error opening archon device\n");
+    }
+
+    // Send IOCTL to start filtering
+    int error = ioctl(fd, NKE_STOP_DIVERTING, NULL);
+    if (error < 1) {
+        printf("error stopping packet diversion\n");
+    }
+    close(fd);
+    
+    // Close the IOService
+    IOServiceClose(connection);
+}
 
 int min( int a, int b ) { return a<b ? a : b ;}
 
