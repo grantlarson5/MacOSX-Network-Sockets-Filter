@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <sys/ioctl.h>
+#include <signal.h>
 
 //-------------------------------------------------------------
 
@@ -22,9 +23,9 @@ io_connect_t    connection;
 
 //-------------------------------------------------------------
 
-IOReturn NkeSocketHandler(io_connect_t connection);
+void NkeSocketHandler(io_connect_t connection); // Previously IOReturn
 const char* NkeEventToString(NkeSocketFilterEvent   event);
-void exitHandler(void);
+void exitHandler(int sig);
 
 //-------------------------------------------------------------
 
@@ -35,10 +36,10 @@ int main(int argc, const char * argv[])
     pthread_t       nkeSocketThread;
     int error;
     
-    // Register atexit handler for stopping filter
-    if (std::atexit(exitHandler)) {
-        printf("error registering exit handler\n");
-    }
+    // Register exit handler for command line exits
+    signal(SIGABRT, &exitHandler);
+    signal(SIGTERM, &exitHandler);
+    signal(SIGINT, &exitHandler);
     
     // Connect to NKE filter driver
     kr = NkeOpenDlDriver( &connection );
@@ -64,6 +65,7 @@ int main(int argc, const char * argv[])
     // Create thread for handling socket notifications
     error = pthread_create(&nkeSocketThread, (pthread_attr_t *)0,
                             (void* (*)(void*))NkeSocketHandler, (void *)connection);
+    
     if (error) {
         perror("pthread_create( SocketNotificationHandler )");
         nkeSocketThread = NULL;
@@ -72,6 +74,7 @@ int main(int argc, const char * argv[])
     if (nkeSocketThread) {
         pthread_join(nkeSocketThread, (void **)&kr);
     }
+    printf("Before main return\n");
     
     //IOServiceClose(connection); // Close the IOService opened by NkeOpenDlDriver
     
@@ -80,7 +83,8 @@ int main(int argc, const char * argv[])
 
 //-------------------------------------------------------------
 
-void exitHandler(void) {
+void exitHandler(int sig) {
+    
     // Open device node for sending ioctls
     int fd = open("/dev/archon", O_RDWR);
     if (fd < 0) {
@@ -101,9 +105,8 @@ void exitHandler(void) {
 
 int min( int a, int b ) { return a<b ? a : b ;}
 
-IOReturn NkeSocketHandler(io_connect_t connection)
+void NkeSocketHandler(io_connect_t connection)
 {
-    
     kern_return_t       kr; // Used throughout function
     uint32_t            dataSize;
     IODataQueueMemory  *queueMappedMemory;
@@ -118,7 +121,7 @@ IOReturn NkeSocketHandler(io_connect_t connection)
     if( !( recvPort = IODataQueueAllocateNotificationPort() ) ){
         printf("failed to allocate notification port\n");
         kr = kIOReturnError;
-        goto exit;
+        goto __exit;
     }
     
     // Initialize shared buffers
@@ -140,7 +143,7 @@ IOReturn NkeSocketHandler(io_connect_t connection)
         
         if( kr != kIOReturnSuccess ){
             printf("failed to map memory (%d)\n",kr);
-            goto exit;
+            goto __exit;
         }
     }
 
@@ -148,7 +151,7 @@ IOReturn NkeSocketHandler(io_connect_t connection)
     kr = IOConnectSetNotificationPort(connection, kt_NkeNotifyTypeSocketFilter, recvPort, 0);
     if( kr != kIOReturnSuccess ){
         printf("failed to register notification port (%d)\n", kr);
-        goto exit;
+        goto __exit;
     }
     
     // Map a buffer used to deliver events from the filter, a data queue is implemented over it,
@@ -161,7 +164,7 @@ IOReturn NkeSocketHandler(io_connect_t connection)
                             kIOMapAnywhere );
     if( kr != kIOReturnSuccess ){
         printf("failed to map memory (%d)\n",kr);
-        goto exit;
+        goto __exit;
     }
     
     queueMappedMemory = (IODataQueueMemory *)address;
@@ -179,15 +182,17 @@ IOReturn NkeSocketHandler(io_connect_t connection)
             // Extract event descriptor from data queue
             kr = IODataQueueDequeue(queueMappedMemory, &notification, &dataSize);
             if( kr == kIOReturnSuccess ){
+                time_t current = time(NULL);
                 
-                printf("NKE event: %s\n", NkeEventToString( notification.event ) );
+                printf("NKE event: %s", NkeEventToString( notification.event ) );
+                printf("\t%s\n", ctime(&current));
                 
                 if( notification.event == NkeSocketFilterEventDataIn || notification.event == NkeSocketFilterEventDataOut ){
                     
-                    // Print the first bytes as a string (may include readable data like HTTP headers)
-                    if( notification.eventData.inputoutput.dataSize && notification.eventData.inputoutput.buffers[0] < kt_NkeSocketBuffersNumber ){
-                        printf("%.*s\n", min(120, notification.eventData.inputoutput.dataSize), (char*)sharedBuffers[notification.eventData.inputoutput.buffers[0]]);
-                    }
+//                    // Print the first bytes as a string (may include readable data like HTTP headers)
+//                    if( notification.eventData.inputoutput.dataSize && notification.eventData.inputoutput.buffers[0] < kt_NkeSocketBuffersNumber ){
+//                        printf("%.*s\n", min(120, notification.eventData.inputoutput.dataSize), (char*)sharedBuffers[notification.eventData.inputoutput.buffers[0]]);
+//                    }
                     
                     // Create a response to the filter
                     NkeSocketFilterServiceResponse   response;
@@ -223,7 +228,8 @@ IOReturn NkeSocketHandler(io_connect_t connection)
         
     } // end while
     
-exit:
+__exit:
+    printf("Inside exit routine\n");
     
     // Unmap memory buffers on exit
     for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
@@ -255,7 +261,11 @@ exit:
         mach_port_destroy(mach_task_self(), recvPort);
     }
     
-    return kr;
+    // Exit the pthread
+    void *ret = NULL;
+    pthread_exit(ret);
+    
+    //return kr;
 }
 
 const char* NkeEventToString( NkeSocketFilterEvent event )
