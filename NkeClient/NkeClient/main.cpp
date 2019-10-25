@@ -8,8 +8,9 @@
 #include "NkeConnection.h"
 
 #include <iostream>
+#include <istream>
 #include <sys/ioctl.h>
-#include <signal.h>
+//#include <signal.h>
 
 //-------------------------------------------------------------
 
@@ -25,7 +26,7 @@ io_connect_t    connection;
 
 void NkeSocketHandler(io_connect_t connection); // Previously IOReturn
 const char* NkeEventToString(NkeSocketFilterEvent   event);
-void exitHandler(int sig);
+void NkeSocketHandlerExit(int sig);
 
 //-------------------------------------------------------------
 
@@ -36,10 +37,10 @@ int main(int argc, const char * argv[])
     pthread_t       nkeSocketThread;
     int error;
     
-    // Register exit handler for command line exits
-    signal(SIGABRT, &exitHandler);
-    signal(SIGTERM, &exitHandler);
-    signal(SIGINT, &exitHandler);
+//    // Register exit handler for command line exits
+//    signal(SIGABRT, &exitHandler);
+//    signal(SIGTERM, &exitHandler);
+//    signal(SIGINT, &exitHandler);
     
     // Connect to NKE filter driver
     kr = NkeOpenDlDriver( &connection );
@@ -74,7 +75,22 @@ int main(int argc, const char * argv[])
     if (nkeSocketThread) {
         pthread_join(nkeSocketThread, (void **)&kr);
     }
-    printf("Before main return\n");
+    
+    printf("Back in main thread\n");
+    
+    // Open device node for sending ioctls
+    fd = open("/dev/archon", O_RDWR);
+    if (fd < 0) {
+        printf("error opening archon device\n");
+    }
+
+    // Send IOCTL to start filtering
+    error = ioctl(fd, NKE_STOP_DIVERTING, NULL);
+    if (error < 1) {
+        printf("error stopping packet diversion\n");
+        printf("ioctl failed and returned errno %s\n",strerror(errno));
+    }
+    close(fd);
     
     //IOServiceClose(connection); // Close the IOService opened by NkeOpenDlDriver
     
@@ -83,27 +99,17 @@ int main(int argc, const char * argv[])
 
 //-------------------------------------------------------------
 
-void exitHandler(int sig) {
-    
-    // Open device node for sending ioctls
-    int fd = open("/dev/archon", O_RDWR);
-    if (fd < 0) {
-        printf("error opening archon device\n");
-    }
-
-    // Send IOCTL to start filtering
-    int error = ioctl(fd, NKE_STOP_DIVERTING, NULL);
-    if (error < 1) {
-        printf("error stopping packet diversion\n");
-        printf("ioctl failed and returned errno %s\n",strerror(errno));
-    }
-    close(fd);
-    
-    // Close the IOService
-    IOServiceClose(connection);
-}
+//void exitHandler(int sig) {
+//    // Close the IOService
+//    IOServiceClose(connection);
+//}
 
 int min( int a, int b ) { return a<b ? a : b ;}
+
+void NkeSocketHandlerExit(int sig) {
+    char *ret = NULL;
+    pthread_exit(ret);
+}
 
 void NkeSocketHandler(io_connect_t connection)
 {
@@ -170,8 +176,18 @@ void NkeSocketHandler(io_connect_t connection)
     queueMappedMemory = (IODataQueueMemory *)address;
     queueMappedMemorySize = size;
     
+    // Set up mechanism for exit
+    bool quit;
+    quit = false;
+    printf("Press 'q' to handle remaining notifications and exit...\n");
+    
     // While loop for filter notifications (queueMappedMemory and recvPort must be non-NULL)
-    while( kIOReturnSuccess == IODataQueueWaitForAvailableData(queueMappedMemory, recvPort) ) {
+    while( kIOReturnSuccess == IODataQueueWaitForAvailableData(queueMappedMemory, recvPort) && !quit ) {
+        
+        // getch
+        if ('q' == getchar()) {
+            quit = true;
+        }
         
         // While loop for handling available filter notifications
         while( IODataQueueDataAvailable(queueMappedMemory) ){
@@ -229,8 +245,7 @@ void NkeSocketHandler(io_connect_t connection)
     } // end while
     
 __exit:
-    printf("Inside exit routine\n");
-    
+
     // Unmap memory buffers on exit
     for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
         
