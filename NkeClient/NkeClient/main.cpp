@@ -5,14 +5,16 @@
 //  Copyright (c) 2016 Slava Imameev. All rights reserved.
 //
 
-#include <iostream>
 #include "NkeConnection.h"
+
+#include <iostream>
 #include <sys/ioctl.h>
 
 //-------------------------------------------------------------
 
-#define NKE_START_DIVERTING _IO('N',1)
-#define NKE_STOP_DIVERTING _IO('N',2)
+// ioctl command definitions
+#define NKE_START_DIVERTING _IO('Z',1)
+#define NKE_STOP_DIVERTING _IO('Z',2)
 
 //-------------------------------------------------------------
 
@@ -31,6 +33,7 @@ int main(int argc, const char * argv[])
     
     kern_return_t   kr;
     pthread_t       nkeSocketThread;
+    int error;
     
     // Register atexit handler for stopping filter
     if (std::atexit(exitHandler)) {
@@ -39,7 +42,7 @@ int main(int argc, const char * argv[])
     
     // Connect to NKE filter driver
     kr = NkeOpenDlDriver( &connection );
-    if( KERN_SUCCESS != kr ){
+    if (KERN_SUCCESS != kr) {
         return (-1);
     }
     
@@ -47,24 +50,26 @@ int main(int argc, const char * argv[])
     int fd = open("/dev/archon", O_RDWR);
     if (fd < 0) {
         printf("error opening archon device\n");
+        return(-1);
     }
-
-    // Send IOCTL to start filtering
-    int error = ioctl(fd, NKE_START_DIVERTING, NULL);
-    if (error < 1) {
+    
+    // Send ioctl to start filtering
+    error = ioctl(fd, NKE_START_DIVERTING, NULL);
+    if (error < 0) {
         printf("error starting packet diversion\n");
+        printf("ioctl failed and returned errno %s\n",strerror(errno));
     }
     close(fd);
     
     // Create thread for handling socket notifications
     error = pthread_create(&nkeSocketThread, (pthread_attr_t *)0,
                             (void* (*)(void*))NkeSocketHandler, (void *)connection);
-    if( error ){
+    if (error) {
         perror("pthread_create( SocketNotificationHandler )");
         nkeSocketThread = NULL;
     }
     
-    if( nkeSocketThread ) {
+    if (nkeSocketThread) {
         pthread_join(nkeSocketThread, (void **)&kr);
     }
     
@@ -86,6 +91,7 @@ void exitHandler(void) {
     int error = ioctl(fd, NKE_STOP_DIVERTING, NULL);
     if (error < 1) {
         printf("error stopping packet diversion\n");
+        printf("ioctl failed and returned errno %s\n",strerror(errno));
     }
     close(fd);
     
