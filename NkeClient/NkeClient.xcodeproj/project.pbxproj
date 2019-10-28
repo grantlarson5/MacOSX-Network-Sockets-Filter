@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B77093A123673D0000F81037 /* libncurses.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B77093A023673D0000F81037 /* libncurses.tbd */; };
 		EAB754AF234635F1004F8797 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EAB754AE234635F1004F8797 /* CoreFoundation.framework */; };
 		F9C232BE1E0FD27900A9DDB6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9C232BD1E0FD27900A9DDB6 /* IOKit.framework */; };
 		F9C232C21E0FDE9900A9DDB6 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F9C232BF1E0FDE9900A9DDB6 /* main.cpp */; };
@@ -27,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		B77026CD2363A19300AA1962 /* libcurses.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcurses.tbd; path = usr/lib/libcurses.tbd; sourceTree = SDKROOT; };
+		B77093A023673D0000F81037 /* libncurses.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libncurses.tbd; path = usr/lib/libncurses.tbd; sourceTree = SDKROOT; };
 		EAB754AE234635F1004F8797 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		F9C232AC1E0FD1B500A9DDB6 /* NkeClient */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = NkeClient; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9C232BD1E0FD27900A9DDB6 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
@@ -40,6 +42,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B77093A123673D0000F81037 /* libncurses.tbd in Frameworks */,
 				EAB754AF234635F1004F8797 /* CoreFoundation.framework in Frameworks */,
 				F9C232BE1E0FD27900A9DDB6 /* IOKit.framework in Frameworks */,
 			);
@@ -51,6 +54,7 @@
 		EAB754AD234635F1004F8797 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B77093A023673D0000F81037 /* libncurses.tbd */,
 				B77026CD2363A19300AA1962 /* libcurses.tbd */,
 				EAB754AE234635F1004F8797 /* CoreFoundation.framework */,
 			);

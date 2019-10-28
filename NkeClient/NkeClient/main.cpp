@@ -8,9 +8,10 @@
 #include "NkeConnection.h"
 
 #include <iostream>
-#include <istream>
 #include <sys/ioctl.h>
-//#include <signal.h>
+#include <stdio.h>
+#include <termios.h>
+#include <fcntl.h>
 
 //-------------------------------------------------------------
 
@@ -26,7 +27,9 @@ io_connect_t    connection;
 
 void NkeSocketHandler(io_connect_t connection); // Previously IOReturn
 const char* NkeEventToString(NkeSocketFilterEvent   event);
-void NkeSocketHandlerExit(int sig);
+void NkeInitTermios(void);
+void NkeResetTermios(void);
+static struct termios oldSettings, newSettings;
 
 //-------------------------------------------------------------
 
@@ -36,11 +39,6 @@ int main(int argc, const char * argv[])
     kern_return_t   kr;
     pthread_t       nkeSocketThread;
     int error;
-    
-//    // Register exit handler for command line exits
-//    signal(SIGABRT, &exitHandler);
-//    signal(SIGTERM, &exitHandler);
-//    signal(SIGINT, &exitHandler);
     
     // Connect to NKE filter driver
     kr = NkeOpenDlDriver( &connection );
@@ -76,7 +74,7 @@ int main(int argc, const char * argv[])
         pthread_join(nkeSocketThread, (void **)&kr);
     }
     
-    printf("Back in main thread\n");
+    printf("Back in main thread!\n");
     
     // Open device node for sending ioctls
     fd = open("/dev/archon", O_RDWR);
@@ -86,7 +84,7 @@ int main(int argc, const char * argv[])
 
     // Send IOCTL to start filtering
     error = ioctl(fd, NKE_STOP_DIVERTING, NULL);
-    if (error < 1) {
+    if (error < 0) {
         printf("error stopping packet diversion\n");
         printf("ioctl failed and returned errno %s\n",strerror(errno));
     }
@@ -99,17 +97,22 @@ int main(int argc, const char * argv[])
 
 //-------------------------------------------------------------
 
-//void exitHandler(int sig) {
-//    // Close the IOService
-//    IOServiceClose(connection);
-//}
-
-int min( int a, int b ) { return a<b ? a : b ;}
-
-void NkeSocketHandlerExit(int sig) {
-    char *ret = NULL;
-    pthread_exit(ret);
+void NkeInitTermios(void) //struct termios &oldSettings, struct termios &newSettings)
+{
+    fcntl(0, F_SETFL, O_NONBLOCK);
+    tcgetattr(0, &oldSettings); /* grab old terminal i/o settings */
+    newSettings = oldSettings; /* make new settings same as old settings */
+    newSettings.c_lflag &= ~ICANON; /* disable buffered i/o */
+    newSettings.c_lflag &= ~ECHO; /* disable echo */
+    tcsetattr(0, TCSANOW, &newSettings); /* use these new terminal i/o settings now */
 }
+
+void NkeResetTermios(void)
+{
+    tcsetattr(0, TCSANOW, &oldSettings);
+}
+
+//-------------------------------------------------------------
 
 void NkeSocketHandler(io_connect_t connection)
 {
@@ -179,13 +182,15 @@ void NkeSocketHandler(io_connect_t connection)
     // Set up mechanism for exit
     bool quit;
     quit = false;
+    NkeInitTermios();
     printf("Press 'q' to handle remaining notifications and exit...\n");
     
     // While loop for filter notifications (queueMappedMemory and recvPort must be non-NULL)
     while( kIOReturnSuccess == IODataQueueWaitForAvailableData(queueMappedMemory, recvPort) && !quit ) {
         
-        // getch
-        if ('q' == getchar()) {
+        char cmd = getchar();
+        printf("cmd is: %c\n", cmd);
+        if (cmd == 'q') {
             quit = true;
         }
         
@@ -204,11 +209,6 @@ void NkeSocketHandler(io_connect_t connection)
                 printf("\t%s\n", ctime(&current));
                 
                 if( notification.event == NkeSocketFilterEventDataIn || notification.event == NkeSocketFilterEventDataOut ){
-                    
-//                    // Print the first bytes as a string (may include readable data like HTTP headers)
-//                    if( notification.eventData.inputoutput.dataSize && notification.eventData.inputoutput.buffers[0] < kt_NkeSocketBuffersNumber ){
-//                        printf("%.*s\n", min(120, notification.eventData.inputoutput.dataSize), (char*)sharedBuffers[notification.eventData.inputoutput.buffers[0]]);
-//                    }
                     
                     // Create a response to the filter
                     NkeSocketFilterServiceResponse   response;
@@ -245,12 +245,16 @@ void NkeSocketHandler(io_connect_t connection)
     } // end while
     
 __exit:
-
+    
+    // Reset termios to previous configuration
+    NkeResetTermios();
+    
     // Unmap memory buffers on exit
     for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
         
-        if( ! sharedBuffers[ i ] )
+        if( !sharedBuffers[ i ] ) {
             continue;
+        }
         
         kr = IOConnectUnmapMemory( connection,
                                    kt_NkeAclTypeSocketDataBase + i,
@@ -280,8 +284,9 @@ __exit:
     void *ret = NULL;
     pthread_exit(ret);
     
-    //return kr;
 }
+
+//-------------------------------------------------------------
 
 const char* NkeEventToString( NkeSocketFilterEvent event )
 {

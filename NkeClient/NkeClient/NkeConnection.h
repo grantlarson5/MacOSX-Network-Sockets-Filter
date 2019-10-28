@@ -24,9 +24,6 @@
 
 #include "../../NKE/NetworkKernelExtension/NkeUserToKernel.h"
 
-kern_return_t
-NkeOpenDlDriver(
-                io_connect_t*    connection
-                );
+kern_return_t NkeOpenDlDriver(io_connect_t* connection);
 
 #endif /* defined(__NkeClient__NkeConnection__) */
