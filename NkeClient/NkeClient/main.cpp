@@ -80,6 +80,8 @@ int main(int argc, const char * argv[])
     fd = open("/dev/archon", O_RDWR);
     if (fd < 0) {
         printf("error opening archon device\n");
+    } else {
+        printf("archon device opened successfully\n");
     }
 
     // Send IOCTL to start filtering
@@ -87,10 +89,12 @@ int main(int argc, const char * argv[])
     if (error < 0) {
         printf("error stopping packet diversion\n");
         printf("ioctl failed and returned errno %s\n",strerror(errno));
+    } else {
+        printf("ioctl succeeded");
     }
     close(fd);
     
-    //IOServiceClose(connection); // Close the IOService opened by NkeOpenDlDriver
+    IOServiceClose(connection);
     
     return 0;
 }
@@ -188,12 +192,6 @@ void NkeSocketHandler(io_connect_t connection)
     // While loop for filter notifications (queueMappedMemory and recvPort must be non-NULL)
     while( kIOReturnSuccess == IODataQueueWaitForAvailableData(queueMappedMemory, recvPort) && !quit ) {
         
-        char cmd = getchar();
-        printf("cmd is: %c\n", cmd);
-        if (cmd == 'q') {
-            quit = true;
-        }
-        
         // While loop for handling available filter notifications
         while( IODataQueueDataAvailable(queueMappedMemory) ){
             
@@ -240,11 +238,19 @@ void NkeSocketHandler(io_connect_t connection)
                 printf("IODataQueueDequeue failed with kr = 0x%X\\n", kr);
             }
             
+            char cmd = getchar();
+            printf("cmd is: %c\n", cmd);
+            if (cmd == 'q') {
+                quit = true;
+            }
+            
         } // end while
         
     } // end while
     
 __exit:
+    
+    printf("Inside exit\n!");
     
     // Reset termios to previous configuration
     NkeResetTermios();
@@ -252,9 +258,8 @@ __exit:
     // Unmap memory buffers on exit
     for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
         
-        if( !sharedBuffers[ i ] ) {
+        if( !sharedBuffers[ i ] )
             continue;
-        }
         
         kr = IOConnectUnmapMemory( connection,
                                    kt_NkeAclTypeSocketDataBase + i,
