@@ -64,33 +64,29 @@ int main(int argc, const char * argv[])
     // Create thread for handling socket notifications
     error = pthread_create(&nkeSocketThread, (pthread_attr_t *)0,
                             (void* (*)(void*))NkeSocketHandler, (void *)connection);
-    
+
     if (error) {
         perror("pthread_create( SocketNotificationHandler )");
         nkeSocketThread = NULL;
     }
-    
+
     if (nkeSocketThread) {
         pthread_join(nkeSocketThread, (void **)&kr);
     }
-    
+
     printf("Back in main thread!\n");
     
     // Open device node for sending ioctls
     fd = open("/dev/archon", O_RDWR);
     if (fd < 0) {
         printf("error opening archon device\n");
-    } else {
-        printf("archon device opened successfully\n");
     }
 
-    // Send IOCTL to start filtering
+    // Send ioctl to stop filtering
     error = ioctl(fd, NKE_STOP_DIVERTING, NULL);
     if (error < 0) {
         printf("error stopping packet diversion\n");
         printf("ioctl failed and returned errno %s\n",strerror(errno));
-    } else {
-        printf("ioctl succeeded");
     }
     close(fd);
     
@@ -127,8 +123,8 @@ void NkeSocketHandler(io_connect_t connection)
     mach_vm_address_t   address = NULL;
     mach_vm_size_t      size = 0x0;
     mach_port_t         recvPort; // Port for receiving filter notifications
-    mach_vm_address_t   sharedBuffers[ kt_NkeSocketBuffersNumber ];
-    mach_vm_size_t      sharedBuffersSize[ kt_NkeSocketBuffersNumber ];
+//    mach_vm_address_t   sharedBuffers[ kt_NkeSocketBuffersNumber ];
+//    mach_vm_size_t      sharedBuffersSize[ kt_NkeSocketBuffersNumber ];
     
     // Allocate a Mach port to receive notifications from the IODataQueue
     if( !( recvPort = IODataQueueAllocateNotificationPort() ) ){
@@ -137,28 +133,28 @@ void NkeSocketHandler(io_connect_t connection)
         goto __exit;
     }
     
-    // Initialize shared buffers
-    for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
-        sharedBuffers[ i ] = NULL;
-        sharedBuffersSize[ i ] = 0;
-    }
-    
-    // Map kernel buffers into process address space
-    for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
-    
-        // Will call clientMemoryForType() inside our user client class
-        kr = IOConnectMapMemory( connection,
-                                 kt_NkeAclTypeSocketDataBase + i,
-                                 mach_task_self(),
-                                 &sharedBuffers[ i ],
-                                 &sharedBuffersSize[ i ],
-                                 kIOMapAnywhere );
-        
-        if( kr != kIOReturnSuccess ){
-            printf("failed to map memory (%d)\n",kr);
-            goto __exit;
-        }
-    }
+//    // Initialize shared buffers
+//    for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
+//        sharedBuffers[ i ] = NULL;
+//        sharedBuffersSize[ i ] = 0;
+//    }
+//
+//    // Map kernel buffers into process address space
+//    for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
+//
+//        // Will call clientMemoryForType() inside our user client class
+//        kr = IOConnectMapMemory( connection,
+//                                 kt_NkeAclTypeSocketDataBase + i,
+//                                 mach_task_self(),
+//                                 &sharedBuffers[ i ],
+//                                 &sharedBuffersSize[ i ],
+//                                 kIOMapAnywhere );
+//
+//        if( kr != kIOReturnSuccess ){
+//            printf("failed to map memory (%d)\n",kr);
+//            goto __exit;
+//        }
+//    }
 
     // Will call registerNotificationPort() inside our user client class
     kr = IOConnectSetNotificationPort(connection, kt_NkeNotifyTypeSocketFilter, recvPort, 0);
@@ -183,7 +179,7 @@ void NkeSocketHandler(io_connect_t connection)
     queueMappedMemory = (IODataQueueMemory *)address;
     queueMappedMemorySize = size;
     
-    // Set up mechanism for exit
+    // Set up exit condition
     bool quit;
     quit = false;
     NkeInitTermios();
@@ -191,6 +187,13 @@ void NkeSocketHandler(io_connect_t connection)
     
     // While loop for filter notifications (queueMappedMemory and recvPort must be non-NULL)
     while( kIOReturnSuccess == IODataQueueWaitForAvailableData(queueMappedMemory, recvPort) && !quit ) {
+        
+        // Check for 'q' on stdin
+        char command = getchar();
+        printf("command is: %c\n", command);
+        if (command == 'q') {
+            quit = true;
+        }
         
         // While loop for handling available filter notifications
         while( IODataQueueDataAvailable(queueMappedMemory) ){
@@ -209,7 +212,7 @@ void NkeSocketHandler(io_connect_t connection)
                 if( notification.event == NkeSocketFilterEventDataIn || notification.event == NkeSocketFilterEventDataOut ){
                     
                     // Create a response to the filter
-                    NkeSocketFilterServiceResponse   response;
+                    NkeSocketFilterServiceResponse response;
                     bzero(&response, sizeof( response ));
                     
                     memcpy( response.buffersToRelease, notification.eventData.inputoutput.buffers, sizeof( response.buffersToRelease ) );
@@ -238,37 +241,29 @@ void NkeSocketHandler(io_connect_t connection)
                 printf("IODataQueueDequeue failed with kr = 0x%X\\n", kr);
             }
             
-            char cmd = getchar();
-            printf("cmd is: %c\n", cmd);
-            if (cmd == 'q') {
-                quit = true;
-            }
-            
-        } // end while
+        }
         
-    } // end while
+    }
     
 __exit:
-    
-    printf("Inside exit\n!");
     
     // Reset termios to previous configuration
     NkeResetTermios();
     
-    // Unmap memory buffers on exit
-    for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
-        
-        if( !sharedBuffers[ i ] )
-            continue;
-        
-        kr = IOConnectUnmapMemory( connection,
-                                   kt_NkeAclTypeSocketDataBase + i,
-                                   mach_task_self(),
-                                   sharedBuffers[ i ] );
-        if( kr != kIOReturnSuccess ){
-            printf("failed to unmap memory (%d)\n", kr);
-        }
-    }
+//    // Unmap memory buffers on exit
+//    for( int i = 0; i < kt_NkeSocketBuffersNumber; ++i ){
+//
+//        if( !sharedBuffers[ i ] )
+//            continue;
+//
+//        kr = IOConnectUnmapMemory( connection,
+//                                   kt_NkeAclTypeSocketDataBase + i,
+//                                   mach_task_self(),
+//                                   sharedBuffers[ i ] );
+//        if( kr != kIOReturnSuccess ){
+//            printf("failed to unmap memory (%d)\n", kr);
+//        }
+//    }
     
     if( address ){
         kr = IOConnectUnmapMemory( connection,
@@ -286,8 +281,7 @@ __exit:
     }
     
     // Exit the pthread
-    void *ret = NULL;
-    pthread_exit(ret);
+    pthread_exit(NULL);
     
 }
 
